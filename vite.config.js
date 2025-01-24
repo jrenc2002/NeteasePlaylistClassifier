@@ -16,7 +16,7 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'http://test.toiletpanel.skylinedances.com',
+                target: 'http://localhost:8080',
                 changeOrigin: true,
                 // 不需要 rewrite，因为API路径本身就包含 /api
                 // rewrite: (path) => path.replace(/^\/api/, ''),

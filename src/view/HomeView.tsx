@@ -2,9 +2,7 @@ import { type FC, useMemo, useEffect } from 'react'
 import axios from 'axios'
 import { useAtom } from 'jotai'
 import {
-  type Song,
   type MusicInfo,
-  type AnalyzeProgress,
   type FilterOptions,
   playlistIdAtom,
   songsAtom,
@@ -373,8 +371,8 @@ const HomeView: FC = () => {
                           <div className="flex gap-2">
                             <span className="text-gray-500 text-xs md:text-sm">曲风:</span>
                             <div className="flex flex-wrap gap-1 md:gap-2">
-                              {info.style.map((style, index) => (
-                                <span key={index} className="px-2 py-0.5 md:py-1 bg-orange-100 text-orange-800 rounded-md text-xs md:text-sm">
+                              {info.style.map((style: string) => (
+                                <span key={style} className="px-2 py-0.5 md:py-1 bg-orange-100 text-orange-800 rounded-md text-xs md:text-sm">
                                   {style}
                                 </span>
                               ))}
@@ -385,8 +383,8 @@ const HomeView: FC = () => {
                           <div className="flex gap-2">
                             <span className="text-gray-500 text-xs md:text-sm">标签:</span>
                             <div className="flex flex-wrap gap-1 md:gap-2">
-                              {info.tags.map((tag, index) => (
-                                <span key={index} className="px-2 py-0.5 md:py-1 bg-blue-100 text-blue-800 rounded-md text-xs md:text-sm">
+                              {info.tags.map((tag: string) => (
+                                <span key={tag} className="px-2 py-0.5 md:py-1 bg-blue-100 text-blue-800 rounded-md text-xs md:text-sm">
                                   {tag}
                                 </span>
                               ))}
@@ -433,7 +431,7 @@ const HomeView: FC = () => {
                     <div>
                       <h3 className="text-xs md:text-sm font-medium text-gray-700 mb-2">曲风</h3>
                       <div className="flex flex-wrap gap-1.5 md:gap-2">
-                        {availableFilters.styles.map((style: string, index: number) => (
+                        {availableFilters.styles.map((style: string) => (
                           <button
                             key={style}
                             onClick={() => {
@@ -460,7 +458,7 @@ const HomeView: FC = () => {
                     <div>
                       <h3 className="text-xs md:text-sm font-medium text-gray-700 mb-2">标签</h3>
                       <div className="flex flex-wrap gap-1.5 md:gap-2">
-                        {availableFilters.tags.map((tag: string, index: number) => (
+                        {availableFilters.tags.map((tag: string) => (
                           <button
                             key={tag}
                             onClick={() => {
@@ -487,7 +485,7 @@ const HomeView: FC = () => {
                     <div>
                       <h3 className="text-xs md:text-sm font-medium text-gray-700 mb-2">语种</h3>
                       <div className="flex flex-wrap gap-1.5 md:gap-2">
-                        {availableFilters.languages.map((language: string, index: number) => (
+                        {availableFilters.languages.map((language: string) => (
                           <button
                             key={language}
                             onClick={() => {
