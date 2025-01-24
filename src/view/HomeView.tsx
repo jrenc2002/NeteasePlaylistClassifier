@@ -17,7 +17,7 @@ import {
   bpmDisplayValuesAtom
 } from '@/store/HomeState'
 
-const apiUrl = 'https://www.example.com'
+const apiUrl = 'https://wyy.jrenc.com'
 
 const HomeView: FC = () => {
   // 使用全局状态替换本地状态
