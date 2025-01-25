@@ -4,6 +4,7 @@ import {
     Route,
     Routes,
 } from 'react-router-dom';
+import { Analytics } from "@vercel/analytics/react";
 
 import { GridBg } from '@/components/bg/GirdBg';
 import { DockObject } from '@/components/dock/Dock';
@@ -22,6 +23,7 @@ function App() {
                         <MainContent />
                     </GridBg>
                 </div>
+                <Analytics />
             </Router>
         </>
     )
