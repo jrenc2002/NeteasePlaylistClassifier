@@ -2,6 +2,13 @@
 
 一个优雅的网易云音乐歌单分类工具，帮助你更好地管理和筛选歌单中的歌曲。支持按照曲风、标签、语种和 BPM 进行智能分类和筛选。
 
+## 体验地址
+yysp.jrenc.com
+
+## 项目截图
+<img width="1680" alt="22a9b58eb06f41b75c3ce605b3c9c86b" src="https://github.com/user-attachments/assets/91784cb6-dbb1-48cc-88c0-8c7e0afedc21" />
+<img width="1680" alt="8388c4130ce5ca94b5a8bdbd01e9952d" src="https://github.com/user-attachments/assets/12b513e6-ad59-4ea8-8922-faa93ba714fe" />
+
 ## 🌟 特性
 
 - 🎵 支持网易云音乐歌单链接/ID导入
