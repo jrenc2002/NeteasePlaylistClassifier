@@ -103,72 +103,95 @@ const HomeView: FC = () => {
     setProgress({ current: 0, total: songs.length, currentSong: '' })
     const newMusicInfos: MusicInfo[] = []
 
-    try {
-      for (let i = 0; i < songs.length; i++) {
-        const song = songs[i]
-        setProgress({
-          current: i + 1,
-          total: songs.length,
-          currentSong: song.name
-        })
+    // 并发控制：同时处理的请求数
+    const concurrency = 10
+    let completed = 0
 
-        try {
-          const response = await axios.get(`${apiUrl}/song/wiki/summary?id=${song.id}`)
-          if (response.data.code === 200) {
-            const basicBlock = response.data.data.blocks.find(
-              (block: any) => block.code === 'SONG_PLAY_ABOUT_SONG_BASIC'
-            )
-            
-            if (basicBlock && basicBlock.creatives) {
-              const musicInfo: MusicInfo = {
-                songId: song.id,
-                songName: song.name,
-                style: [],
-                tags: [],
-                language: '',
-                bpm: undefined
-              }
-
-              basicBlock.creatives.forEach((creative: any) => {
-                if (creative.creativeType === 'songTag') {
-                  musicInfo.style = creative.resources.map((res: any) => 
-                    res.uiElement.mainTitle.title
-                  )
-                }
-                else if (creative.creativeType === 'songBizTag') {
-                  musicInfo.tags = creative.resources.map((res: any) => 
-                    res.uiElement.mainTitle.title
-                  )
-                }
-                else if (creative.creativeType === 'language') {
-                  musicInfo.language = creative.uiElement.textLinks?.[0]?.text || ''
-                }
-                else if (creative.creativeType === 'bpm') {
-                  const bpmText = creative.uiElement.textLinks?.[0]?.text
-                  if (bpmText) {
-                    musicInfo.bpm = parseInt(bpmText)
-                  }
-                }
-              })
-
-              // 为空的字段添加"其他"标签
-              if (!musicInfo.style || musicInfo.style.length === 0) {
-                musicInfo.style = ['其他']
-              }
-              if (!musicInfo.tags || musicInfo.tags.length === 0) {
-                musicInfo.tags = ['其他']
-              }
-              if (!musicInfo.language) {
-                musicInfo.language = '其他'
-              }
-
-              newMusicInfos.push(musicInfo)
-              setMusicInfos([...newMusicInfos])
+    // 分析单个歌曲的函数
+    const analyzeSong = async (song: any) => {
+      try {
+        const response = await axios.get(`${apiUrl}/song/wiki/summary?id=${song.id}`)
+        if (response.data.code === 200) {
+          const basicBlock = response.data.data.blocks.find(
+            (block: any) => block.code === 'SONG_PLAY_ABOUT_SONG_BASIC'
+          )
+          
+          if (basicBlock && basicBlock.creatives) {
+            const musicInfo: MusicInfo = {
+              songId: song.id,
+              songName: song.name,
+              style: [],
+              tags: [],
+              language: '',
+              bpm: undefined
             }
+
+            basicBlock.creatives.forEach((creative: any) => {
+              if (creative.creativeType === 'songTag') {
+                musicInfo.style = creative.resources.map((res: any) => 
+                  res.uiElement.mainTitle.title
+                )
+              }
+              else if (creative.creativeType === 'songBizTag') {
+                musicInfo.tags = creative.resources.map((res: any) => 
+                  res.uiElement.mainTitle.title
+                )
+              }
+              else if (creative.creativeType === 'language') {
+                musicInfo.language = creative.uiElement.textLinks?.[0]?.text || ''
+              }
+              else if (creative.creativeType === 'bpm') {
+                const bpmText = creative.uiElement.textLinks?.[0]?.text
+                if (bpmText) {
+                  musicInfo.bpm = parseInt(bpmText)
+                }
+              }
+            })
+
+            // 为空的字段添加"其他"标签
+            if (!musicInfo.style || musicInfo.style.length === 0) {
+              musicInfo.style = ['其他']
+            }
+            if (!musicInfo.tags || musicInfo.tags.length === 0) {
+              musicInfo.tags = ['其他']
+            }
+            if (!musicInfo.language) {
+              musicInfo.language = '其他'
+            }
+
+            return musicInfo
           }
-        } catch (err) {
-          console.error(`获取歌曲 ${song.id} 的信息失败`)
         }
+      } catch (err) {
+        console.error(`获取歌曲 ${song.id} 的信息失败`)
+      }
+      return null
+    }
+
+    try {
+      // 分批并行处理
+      for (let i = 0; i < songs.length; i += concurrency) {
+        const batch = songs.slice(i, i + concurrency)
+        const promises = batch.map(song => analyzeSong(song))
+        
+        const results = await Promise.all(promises)
+        
+        // 处理结果并更新进度
+        results.forEach((musicInfo, index) => {
+          completed++
+          const song = batch[index]
+          
+          setProgress({
+            current: completed,
+            total: songs.length,
+            currentSong: song.name
+          })
+
+          if (musicInfo) {
+            newMusicInfos.push(musicInfo)
+            setMusicInfos([...newMusicInfos])
+          }
+        })
       }
     } finally {
       setAnalyzing(false)
