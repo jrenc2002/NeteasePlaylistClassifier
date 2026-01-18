@@ -15,7 +15,7 @@ import {
   bpmDisplayValuesAtom
 } from '@/store/HomeState'
 
-const apiUrl = 'https://wyy.jrenc.com'
+const apiUrl = 'http://localhost:3000'
 
 const HomeView: FC = () => {
   // 使用全局状态替换本地状态
@@ -56,12 +56,36 @@ const HomeView: FC = () => {
     try {
       setLoading(true)
       setError('')
-      const response = await axios.get(`${apiUrl}/playlist/track/all?id=${playlistId}`)
-      if (response.data.code === 200) {
-        setSongs(response.data.songs)
-        setMusicInfos([]) // 清空之前的分析结果
-        setProgress({ current: 0, total: 0, currentSong: '' }) // 重置进度
+      let allSongs: any[] = []
+      let offset = 0
+      const limit = 1000
+
+      // 循环获取所有歌曲，处理超过1000首的情况
+      while (true) {
+        const response = await axios.get(
+          `${apiUrl}/playlist/track/all?id=${playlistId}&limit=${limit}&offset=${offset}`
+        )
+        
+        if (response.data.code === 200) {
+          const songs = response.data.songs
+          allSongs = allSongs.concat(songs)
+
+          // 如果返回的歌曲数少于limit，说明已获取全部歌曲
+          if (songs.length < limit) {
+            break
+          }
+
+          // 否则继续获取下一页
+          offset += limit
+        } else {
+          setError('获取歌单失败，请检查ID是否正确')
+          return
+        }
       }
+
+      setSongs(allSongs)
+      setMusicInfos([]) // 清空之前的分析结果
+      setProgress({ current: 0, total: 0, currentSong: '' }) // 重置进度
     } catch (err) {
       setError('获取歌单失败，请检查ID是否正确')
     } finally {
@@ -296,7 +320,14 @@ const HomeView: FC = () => {
           <div className="bg-white rounded-lg border border-gray-300 shadow-lg flex-1 flex flex-col overflow-hidden">
             <div className="p-4 md:p-6 py-3 md:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg md:text-xl font-semibold">歌单内容</h2>
+                <h2 className="text-lg md:text-xl font-semibold">
+                  歌单内容
+                  {songs.length > 0 && (
+                    <span className="text-xs md:text-sm font-normal text-gray-500 ml-2">
+                      ({songs.length}首)
+                    </span>
+                  )}
+                </h2>
                 {songs.length > 0 && (
                   <button
                     onClick={handleAnalyze}
