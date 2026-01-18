@@ -151,6 +151,17 @@ const HomeView: FC = () => {
                 }
               })
 
+              // 为空的字段添加"其他"标签
+              if (!musicInfo.style || musicInfo.style.length === 0) {
+                musicInfo.style = ['其他']
+              }
+              if (!musicInfo.tags || musicInfo.tags.length === 0) {
+                musicInfo.tags = ['其他']
+              }
+              if (!musicInfo.language) {
+                musicInfo.language = '其他'
+              }
+
               newMusicInfos.push(musicInfo)
               setMusicInfos([...newMusicInfos])
             }
