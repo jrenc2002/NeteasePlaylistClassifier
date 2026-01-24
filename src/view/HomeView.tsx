@@ -15,7 +15,7 @@ import {
   bpmDisplayValuesAtom
 } from '@/store/HomeState'
 
-const apiUrl = 'https://wyy.jrenc.com'
+const apiUrl = 'http://localhost:3000'
 
 const HomeView: FC = () => {
   // 使用全局状态替换本地状态
@@ -56,12 +56,36 @@ const HomeView: FC = () => {
     try {
       setLoading(true)
       setError('')
-      const response = await axios.get(`${apiUrl}/playlist/track/all?id=${playlistId}`)
-      if (response.data.code === 200) {
-        setSongs(response.data.songs)
-        setMusicInfos([]) // 清空之前的分析结果
-        setProgress({ current: 0, total: 0, currentSong: '' }) // 重置进度
+      let allSongs: any[] = []
+      let offset = 0
+      const limit = 1000
+
+      // 循环获取所有歌曲，处理超过1000首的情况
+      while (true) {
+        const response = await axios.get(
+          `${apiUrl}/playlist/track/all?id=${playlistId}&limit=${limit}&offset=${offset}`
+        )
+        
+        if (response.data.code === 200) {
+          const songs = response.data.songs
+          allSongs = allSongs.concat(songs)
+
+          // 如果返回的歌曲数少于limit，说明已获取全部歌曲
+          if (songs.length < limit) {
+            break
+          }
+
+          // 否则继续获取下一页
+          offset += limit
+        } else {
+          setError('获取歌单失败，请检查ID是否正确')
+          return
+        }
       }
+
+      setSongs(allSongs)
+      setMusicInfos([]) // 清空之前的分析结果
+      setProgress({ current: 0, total: 0, currentSong: '' }) // 重置进度
     } catch (err) {
       setError('获取歌单失败，请检查ID是否正确')
     } finally {
@@ -79,61 +103,95 @@ const HomeView: FC = () => {
     setProgress({ current: 0, total: songs.length, currentSong: '' })
     const newMusicInfos: MusicInfo[] = []
 
-    try {
-      for (let i = 0; i < songs.length; i++) {
-        const song = songs[i]
-        setProgress({
-          current: i + 1,
-          total: songs.length,
-          currentSong: song.name
-        })
+    // 并发控制：同时处理的请求数
+    const concurrency = 10
+    let completed = 0
 
-        try {
-          const response = await axios.get(`${apiUrl}/song/wiki/summary?id=${song.id}`)
-          if (response.data.code === 200) {
-            const basicBlock = response.data.data.blocks.find(
-              (block: any) => block.code === 'SONG_PLAY_ABOUT_SONG_BASIC'
-            )
-            
-            if (basicBlock && basicBlock.creatives) {
-              const musicInfo: MusicInfo = {
-                songId: song.id,
-                songName: song.name,
-                style: [],
-                tags: [],
-                language: '',
-                bpm: undefined
-              }
-
-              basicBlock.creatives.forEach((creative: any) => {
-                if (creative.creativeType === 'songTag') {
-                  musicInfo.style = creative.resources.map((res: any) => 
-                    res.uiElement.mainTitle.title
-                  )
-                }
-                else if (creative.creativeType === 'songBizTag') {
-                  musicInfo.tags = creative.resources.map((res: any) => 
-                    res.uiElement.mainTitle.title
-                  )
-                }
-                else if (creative.creativeType === 'language') {
-                  musicInfo.language = creative.uiElement.textLinks?.[0]?.text || ''
-                }
-                else if (creative.creativeType === 'bpm') {
-                  const bpmText = creative.uiElement.textLinks?.[0]?.text
-                  if (bpmText) {
-                    musicInfo.bpm = parseInt(bpmText)
-                  }
-                }
-              })
-
-              newMusicInfos.push(musicInfo)
-              setMusicInfos([...newMusicInfos])
+    // 分析单个歌曲的函数
+    const analyzeSong = async (song: any) => {
+      try {
+        const response = await axios.get(`${apiUrl}/song/wiki/summary?id=${song.id}`)
+        if (response.data.code === 200) {
+          const basicBlock = response.data.data.blocks.find(
+            (block: any) => block.code === 'SONG_PLAY_ABOUT_SONG_BASIC'
+          )
+          
+          if (basicBlock && basicBlock.creatives) {
+            const musicInfo: MusicInfo = {
+              songId: song.id,
+              songName: song.name,
+              style: [],
+              tags: [],
+              language: '',
+              bpm: undefined
             }
+
+            basicBlock.creatives.forEach((creative: any) => {
+              if (creative.creativeType === 'songTag') {
+                musicInfo.style = creative.resources.map((res: any) => 
+                  res.uiElement.mainTitle.title
+                )
+              }
+              else if (creative.creativeType === 'songBizTag') {
+                musicInfo.tags = creative.resources.map((res: any) => 
+                  res.uiElement.mainTitle.title
+                )
+              }
+              else if (creative.creativeType === 'language') {
+                musicInfo.language = creative.uiElement.textLinks?.[0]?.text || ''
+              }
+              else if (creative.creativeType === 'bpm') {
+                const bpmText = creative.uiElement.textLinks?.[0]?.text
+                if (bpmText) {
+                  musicInfo.bpm = parseInt(bpmText)
+                }
+              }
+            })
+
+            // 为空的字段添加"其他"标签
+            if (!musicInfo.style || musicInfo.style.length === 0) {
+              musicInfo.style = ['其他']
+            }
+            if (!musicInfo.tags || musicInfo.tags.length === 0) {
+              musicInfo.tags = ['其他']
+            }
+            if (!musicInfo.language) {
+              musicInfo.language = '其他'
+            }
+
+            return musicInfo
           }
-        } catch (err) {
-          console.error(`获取歌曲 ${song.id} 的信息失败`)
         }
+      } catch (err) {
+        console.error(`获取歌曲 ${song.id} 的信息失败`)
+      }
+      return null
+    }
+
+    try {
+      // 分批并行处理
+      for (let i = 0; i < songs.length; i += concurrency) {
+        const batch = songs.slice(i, i + concurrency)
+        const promises = batch.map(song => analyzeSong(song))
+        
+        const results = await Promise.all(promises)
+        
+        // 处理结果并更新进度
+        results.forEach((musicInfo, index) => {
+          completed++
+          const song = batch[index]
+          
+          setProgress({
+            current: completed,
+            total: songs.length,
+            currentSong: song.name
+          })
+
+          if (musicInfo) {
+            newMusicInfos.push(musicInfo)
+            setMusicInfos([...newMusicInfos])
+          }
+        })
       }
     } finally {
       setAnalyzing(false)
@@ -296,7 +354,14 @@ const HomeView: FC = () => {
           <div className="bg-white rounded-lg border border-gray-300 shadow-lg flex-1 flex flex-col overflow-hidden">
             <div className="p-4 md:p-6 py-3 md:py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg md:text-xl font-semibold">歌单内容</h2>
+                <h2 className="text-lg md:text-xl font-semibold">
+                  歌单内容
+                  {songs.length > 0 && (
+                    <span className="text-xs md:text-sm font-normal text-gray-500 ml-2">
+                      ({songs.length}首)
+                    </span>
+                  )}
+                </h2>
                 {songs.length > 0 && (
                   <button
                     onClick={handleAnalyze}
